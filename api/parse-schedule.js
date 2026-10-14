@@ -1,28 +1,17 @@
-export default async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
-
-  // 处理 OPTIONS 预检请求
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ success: false, message: '只接受 POST 请求' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
-  // 只接受 POST
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ success: false, message: '只接受 POST 请求' }) };
-  }
-
-
-  const API_KEY = 'process.env.DASHSCOPE_API_KEY'; 
+  const API_KEY = process.env.DASHSCOPE_API_KEY;
   const API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   const MODEL_NAME = 'qwen-vl-plus';
 
   try {
-    const { image } = JSON.parse(event.body || '{}');
+    const { image } = await req.json();
 
     const prompt = `
 请识别这张大学课表截图，严格按照以下 JSON 数组格式返回，不要加任何额外文字：
@@ -72,16 +61,15 @@ export default async (event) => {
     if (!match) throw new Error('AI 没有返回有效 JSON');
 
     const courses = JSON.parse(match[0]);
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: true, courses })
-    };
+
+    return new Response(JSON.stringify({ success: true, courses }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (err) {
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: false, message: err.message })
-    };
+    return new Response(JSON.stringify({ success: false, message: err.message }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };
