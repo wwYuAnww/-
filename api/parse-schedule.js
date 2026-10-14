@@ -16,7 +16,7 @@ export default async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ success: false, message: '只接受 POST 请求' }) };
   }
 
-  const API_KEY = '你的API_KEY'; // 👈 换成你自己的通义千问 API Key
+  const API_KEY = 'sk-a2f2401ff85e46b0b4ded1e553e3eb52'; 
   const API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   const MODEL_NAME = 'qwen-vl-plus';
 
