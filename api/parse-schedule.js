@@ -1,16 +1,28 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ success: false, message: '只接受 POST 请求' });
+export default async (event) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
+  };
 
-  const API_KEY = 'sk-a2f2401ff85e46b0b4ded1e553e3eb52';
+  // 处理 OPTIONS 预检请求
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  // 只接受 POST
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ success: false, message: '只接受 POST 请求' }) };
+  }
+
+  const API_KEY = '你的API_KEY'; // 👈 换成你自己的通义千问 API Key
   const API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   const MODEL_NAME = 'qwen-vl-plus';
 
   try {
-    const { image } = req.body;
+    const { image } = JSON.parse(event.body || '{}');
+
     const prompt = `
 请识别这张大学课表截图，严格按照以下 JSON 数组格式返回，不要加任何额外文字：
 [
@@ -35,10 +47,21 @@ export default async function handler(req, res) {
 
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + API_KEY
+      },
       body: JSON.stringify({
         model: MODEL_NAME,
-        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: image } }] }]
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: image } }
+            ]
+          }
+        ]
       })
     });
 
@@ -48,8 +71,16 @@ export default async function handler(req, res) {
     if (!match) throw new Error('AI 没有返回有效 JSON');
 
     const courses = JSON.parse(match[0]);
-    res.json({ success: true, courses });
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ success: true, courses })
+    };
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ success: false, message: err.message })
+    };
   }
-}
+};
