@@ -11,10 +11,14 @@ export default async (req) => {
   const MODEL_NAME = 'qwen-vl-plus';
 
   try {
-    const { image } = await req.json();
+    const { images } = await req.json();
+
+    if (!Array.isArray(images) || images.length === 0) {
+      throw new Error('没有收到图片');
+    }
 
     const prompt = `
-请识别这张大学课表截图，严格按照以下 JSON 数组格式返回，不要加任何额外文字：
+请识别这些大学课表截图，严格按照以下 JSON 数组格式返回，不要加任何额外文字：
 [
   {
     "course": "课程名",
@@ -33,7 +37,16 @@ export default async (req) => {
 - weeks：周次，比如 "1-16" 或 "1,3,5,7"
 - type：全周、单周、双周或单次
 - 如果某项为空，就填 ""
+- 如果多张图片里有重复课程，请去重，只保留一条
 `;
+
+    const content = [
+      { type: 'text', text: prompt }
+    ];
+    // 把所有图片都塞进去
+    images.forEach(function (img) {
+      content.push({ type: 'image_url', image_url: { url: img } });
+    });
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -43,21 +56,15 @@ export default async (req) => {
       },
       body: JSON.stringify({
         model: MODEL_NAME,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: image } }
-            ]
-          }
-        ]
+        messages: [{ role: 'user', content: content }]
       })
     });
 
     const data = await response.json();
     const text = data.choices[0].message.content;
-    const match = text.match(/\[[\s\S]*\]/);
+
+    const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const match = cleaned.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('AI 没有返回有效 JSON');
 
     const courses = JSON.parse(match[0]);
